@@ -1,0 +1,6 @@
+{
+  "name": "Tablero Derivados",
+  "description": "Tablero analítico con filtros multidimensionales, KPIs y tablas dinámicas conectado a las hojas Lectura y Derivados de Google Sheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
