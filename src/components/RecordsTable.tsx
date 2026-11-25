@@ -22,6 +22,14 @@ type SortKey =
   | 'fechaRegIso'
   | 'anotador';
 
+type EstadoTurnoFilterValue = 'No Asistió' | 'Asistió' | 'Asignado';
+
+const ESTADO_TURNO_FILTER_OPTIONS: EstadoTurnoFilterValue[] = [
+  'No Asistió',
+  'Asistió',
+  'Asignado',
+];
+
 function normalizeHoraForSort(hora: string): string {
   const trimmed = hora.trim();
   if (!trimmed) return '';
@@ -36,15 +44,59 @@ function normalizeHoraForSort(hora: string): string {
   return `${String(h).padStart(2, '0')}:${min}:${sec}`;
 }
 
+function truncateChars(text: string, maxChars = 20): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars).trimEnd()}…`;
+}
+
+function getDisplayEstadoTurno(
+  row: DerivadoRow,
+  lecturaFechaIso?: string
+): { label: string; isPastAsignado: boolean; isAdmisionadoColor: boolean } {
+  const rawNorm = row.estadoTurno.trim().toLowerCase();
+  const isPastLectura =
+    Boolean(lecturaFechaIso) &&
+    Boolean(row.fechaTurIso) &&
+    row.fechaTurIso < lecturaFechaIso!;
+
+  if (isPastLectura && rawNorm === 'asignado') {
+    return {
+      label: 'No Asistió',
+      isPastAsignado: true,
+      isAdmisionadoColor: false,
+    };
+  }
+
+  if (isPastLectura && rawNorm === 'admisionado') {
+    return {
+      label: 'Asistió',
+      isPastAsignado: false,
+      isAdmisionadoColor: true,
+    };
+  }
+
+  return {
+    label: row.estadoTurno,
+    isPastAsignado: false,
+    isAdmisionadoColor: rawNorm === 'admisionado',
+  };
+}
+
 export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('fechaTurIso');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
+  const [selectedEstadosTurno, setSelectedEstadosTurno] = useState<
+    EstadoTurnoFilterValue[]
+  >([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
   const sortedRows = useMemo(() => {
+    const selectedSet =
+      selectedEstadosTurno.length > 0 ? new Set<string>(selectedEstadosTurno) : null;
+
     const filtered = rows.filter((r) => {
       const slotNorm = r.estadoSlot.trim().toLowerCase();
       const capsNorm = r.caps.trim().toLowerCase();
@@ -62,6 +114,11 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
       }
       if (fechaHasta && (!r.fechaTurIso || r.fechaTurIso > fechaHasta)) {
         return false;
+      }
+
+      if (selectedSet) {
+        const displayEstado = getDisplayEstadoTurno(r, lecturaFechaIso).label;
+        if (!selectedSet.has(displayEstado)) return false;
       }
 
       return true;
@@ -87,13 +144,28 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
         return sortDir === 'asc' ? cmp : -cmp;
       }
 
+      if (sortKey === 'estadoTurno') {
+        const ea = getDisplayEstadoTurno(a, lecturaFechaIso).label;
+        const eb = getDisplayEstadoTurno(b, lecturaFechaIso).label;
+        const cmp = ea.localeCompare(eb, 'es');
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+
       const va = a[sortKey] || '';
       const vb = b[sortKey] || '';
       const cmp = va.localeCompare(vb, 'es');
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return filtered;
-  }, [rows, sortKey, sortDir, fechaDesde, fechaHasta]);
+  }, [
+    rows,
+    sortKey,
+    sortDir,
+    fechaDesde,
+    fechaHasta,
+    selectedEstadosTurno,
+    lecturaFechaIso,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -110,6 +182,13 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
       setSortKey(key);
       setSortDir('asc');
     }
+    setPage(1);
+  };
+
+  const toggleEstadoFilter = (val: EstadoTurnoFilterValue) => {
+    setSelectedEstadosTurno((prev) =>
+      prev.includes(val) ? prev.filter((item) => item !== val) : [...prev, val]
+    );
     setPage(1);
   };
 
@@ -135,7 +214,7 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
       r.fechaTurIso ? formatIsoToDisplay(r.fechaTurIso) : r.fechaTurRaw,
       r.hora,
       r.paciente,
-      r.estadoTurno,
+      getDisplayEstadoTurno(r, lecturaFechaIso).label,
       r.usuario,
       r.fechaRegIso ? formatIsoToDisplay(r.fechaRegIso) : r.fechaRegRaw,
       r.anotador,
@@ -163,6 +242,7 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
   ];
 
   const hasDateFilter = Boolean(fechaDesde || fechaHasta);
+  const hasEstadoFilter = selectedEstadosTurno.length > 0;
 
   return (
     <section
@@ -174,7 +254,53 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
           Registros de Derivados
         </h2>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+            <span className="font-medium text-slate-700">EstadoTurno:</span>
+            <div
+              role="group"
+              aria-label="Filtrar por EstadoTurno"
+              className="inline-flex flex-wrap items-center gap-1 bg-slate-50 border border-slate-200 rounded p-0.5"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedEstadosTurno([]);
+                  setPage(1);
+                }}
+                className={`px-2 py-0.5 text-xs font-medium rounded transition-colors ${
+                  !hasEstadoFilter
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Todos
+              </button>
+              {ESTADO_TURNO_FILTER_OPTIONS.map((opt) => {
+                const active = selectedEstadosTurno.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleEstadoFilter(opt)}
+                    className={`px-2 py-0.5 text-xs font-medium rounded transition-colors ${
+                      active
+                        ? opt === 'No Asistió'
+                          ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                          : opt === 'Asistió'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            : 'bg-sky-100 text-sky-800 border border-sky-200'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
             <span className="font-medium text-slate-700">FechaTur:</span>
             <label className="flex items-center gap-1">
@@ -254,17 +380,18 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
           <p className="text-sm font-medium text-slate-700">
             Sin registros que coincidan con los filtros.
           </p>
-          {hasDateFilter && (
+          {(hasDateFilter || hasEstadoFilter) && (
             <button
               type="button"
               onClick={() => {
                 setFechaDesde('');
                 setFechaHasta('');
+                setSelectedEstadosTurno([]);
                 setPage(1);
               }}
               className="text-xs font-medium text-teal-700 hover:text-teal-900"
             >
-              Limpiar filtro de FechaTur
+              Limpiar filtros de la tabla
             </button>
           )}
         </div>
@@ -300,11 +427,7 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {pageRows.map((row) => {
-                const isOverdueAssigned =
-                  row.estadoTurno.trim().toLowerCase() === 'asignado' &&
-                  Boolean(lecturaFechaIso) &&
-                  Boolean(row.fechaTurIso) &&
-                  row.fechaTurIso < lecturaFechaIso!;
+                const estadoInfo = getDisplayEstadoTurno(row, lecturaFechaIso);
 
                 return (
                   <tr key={row.id} className="hover:bg-slate-50/80 h-9">
@@ -328,24 +451,30 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
                     <td className="px-3.5 py-2 font-mono tabular-nums text-slate-700 whitespace-nowrap">
                       {row.hora || '—'}
                     </td>
-                    <td className="px-3.5 py-2 text-slate-800 whitespace-nowrap">
-                      {row.paciente || '—'}
+                    <td
+                      title={row.paciente || undefined}
+                      className="px-3.5 py-2 text-slate-800 whitespace-nowrap"
+                    >
+                      {row.paciente ? truncateChars(row.paciente, 20) : '—'}
                     </td>
                     <td
                       className={`px-3.5 py-2 whitespace-nowrap ${
-                        isOverdueAssigned
+                        estadoInfo.isPastAsignado
                           ? 'bg-rose-100 text-rose-800 font-semibold'
-                          : row.estadoTurno === 'Admisionado'
+                          : estadoInfo.isAdmisionadoColor
                             ? 'text-emerald-700 font-medium'
-                            : row.estadoTurno === 'Asignado'
+                            : row.estadoTurno.trim().toLowerCase() === 'asignado'
                               ? 'text-sky-700'
                               : 'text-slate-400'
                       }`}
                     >
-                      {row.estadoTurno}
+                      {estadoInfo.label}
                     </td>
-                    <td className="px-3.5 py-2 text-slate-700 whitespace-nowrap">
-                      {row.usuario || '—'}
+                    <td
+                      title={row.usuario || undefined}
+                      className="px-3.5 py-2 text-slate-700 whitespace-nowrap"
+                    >
+                      {row.usuario ? truncateChars(row.usuario, 20) : '—'}
                     </td>
                     <td className="px-3.5 py-2 font-mono tabular-nums text-slate-700 whitespace-nowrap">
                       {row.fechaRegIso
