@@ -228,9 +228,11 @@ function parseDerivadosTable(cols: GvizCol[], rows: GvizRow[]): DerivadoRow[] {
   const iProf = findCol(['profesional', 'medico'], 3);
   const iFecha = findCol(['fechatur', 'fecha'], 4);
   const iHora = findCol(['hora', 'horatur'], -1);
+  const iPaciente = findCol(['paciente'], -1);
   const iSlot = findCol(['estadoslot'], 5);
   const iTurno = findCol(['estadoturno'], 6);
   const iUsuario = findCol(['usuario', 'user'], -1);
+  const iFechaReg = findCol(['fechareg', 'fecha reg', 'fecha registro'], -1);
   const iAnot = findCol(['anotador'], 7);
 
   const parsed: DerivadoRow[] = [];
@@ -253,9 +255,13 @@ function parseDerivadosTable(cols: GvizCol[], rows: GvizRow[]): DerivadoRow[] {
     const fechaMes = fechaIso ? fechaIso.slice(0, 7) : '';
 
     const horaRaw = get(iHora);
+    const pacienteRaw = get(iPaciente);
     const estadoSlotRaw = get(iSlot);
     const estadoTurnoRaw = get(iTurno);
     const usuarioRaw = get(iUsuario);
+    const fechaRegCell = iFechaReg >= 0 ? cells[iFechaReg] : null;
+    const fechaRegRaw = getCellText(fechaRegCell);
+    const fechaRegIso = parseSheetDateToIso(fechaRegRaw, fechaRegCell?.v);
     const anotadorRaw = get(iAnot);
 
     parsed.push({
@@ -268,9 +274,12 @@ function parseDerivadosTable(cols: GvizCol[], rows: GvizRow[]): DerivadoRow[] {
       fechaTurIso: fechaIso,
       fechaTurMes: fechaMes,
       hora: horaRaw,
+      paciente: pacienteRaw,
       estadoSlot: estadoSlotRaw || 'Sin estado',
       estadoTurno: estadoTurnoRaw || 'Sin estado',
       usuario: usuarioRaw,
+      fechaRegRaw,
+      fechaRegIso,
       anotador: anotadorRaw || 'Sin anotador',
     });
   }

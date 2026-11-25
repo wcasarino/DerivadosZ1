@@ -16,8 +16,10 @@ type SortKey =
   | 'profesional'
   | 'fechaTurIso'
   | 'hora'
+  | 'paciente'
   | 'estadoTurno'
   | 'usuario'
+  | 'fechaRegIso'
   | 'anotador';
 
 function normalizeHoraForSort(hora: string): string {
@@ -119,8 +121,10 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
       'Profesional',
       'FechaTur',
       'Hora',
+      'Paciente',
       'EstadoTurno',
       'Usuario',
+      'FechaReg',
       'Anotador',
     ];
     const data = sortedRows.map((r) => [
@@ -130,8 +134,10 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
       r.profesional,
       r.fechaTurIso ? formatIsoToDisplay(r.fechaTurIso) : r.fechaTurRaw,
       r.hora,
+      r.paciente,
       r.estadoTurno,
       r.usuario,
+      r.fechaRegIso ? formatIsoToDisplay(r.fechaRegIso) : r.fechaRegRaw,
       r.anotador,
     ]);
     downloadXlsx(
@@ -149,8 +155,10 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
     { key: 'profesional', label: 'Profesional' },
     { key: 'fechaTurIso', label: 'FechaTur' },
     { key: 'hora', label: 'Hora' },
+    { key: 'paciente', label: 'Paciente' },
     { key: 'estadoTurno', label: 'EstadoTurno' },
     { key: 'usuario', label: 'Usuario' },
+    { key: 'fechaRegIso', label: 'FechaReg' },
     { key: 'anotador', label: 'Anotador' },
   ];
 
@@ -320,6 +328,9 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
                     <td className="px-3.5 py-2 font-mono tabular-nums text-slate-700 whitespace-nowrap">
                       {row.hora || '—'}
                     </td>
+                    <td className="px-3.5 py-2 text-slate-800 whitespace-nowrap">
+                      {row.paciente || '—'}
+                    </td>
                     <td
                       className={`px-3.5 py-2 whitespace-nowrap ${
                         isOverdueAssigned
@@ -335,6 +346,11 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
                     </td>
                     <td className="px-3.5 py-2 text-slate-700 whitespace-nowrap">
                       {row.usuario || '—'}
+                    </td>
+                    <td className="px-3.5 py-2 font-mono tabular-nums text-slate-700 whitespace-nowrap">
+                      {row.fechaRegIso
+                        ? formatIsoToDisplay(row.fechaRegIso)
+                        : row.fechaRegRaw || '—'}
                     </td>
                     <td className="px-3.5 py-2 text-slate-600 whitespace-nowrap">
                       {row.anotador}

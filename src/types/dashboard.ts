@@ -8,9 +8,12 @@ export interface DerivadoRow {
   fechaTurIso: string; // YYYY-MM-DD for sorting and date range filtering
   fechaTurMes: string; // YYYY-MM for monthly grouping
   hora: string;
+  paciente: string;
   estadoSlot: string;
   estadoTurno: string; // Normalized: "Sin estado" when blank in sheet
   usuario: string;
+  fechaRegRaw: string;
+  fechaRegIso: string; // YYYY-MM-DD for sorting
   anotador: string; // Normalized: "Sin anotador" when blank in sheet
 }
 
