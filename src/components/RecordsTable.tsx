@@ -15,8 +15,24 @@ type SortKey =
   | 'especialidad'
   | 'profesional'
   | 'fechaTurIso'
+  | 'hora'
   | 'estadoTurno'
+  | 'usuario'
   | 'anotador';
+
+function normalizeHoraForSort(hora: string): string {
+  const trimmed = hora.trim();
+  if (!trimmed) return '';
+  const m = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?$/i);
+  if (!m) return trimmed;
+  let h = parseInt(m[1], 10);
+  const min = m[2];
+  const sec = m[3] ?? '00';
+  const mer = m[4]?.toLowerCase();
+  if (mer === 'p' && h < 12) h += 12;
+  if (mer === 'a' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${min}:${sec}`;
+}
 
 export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('fechaTurIso');
@@ -50,6 +66,25 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
     });
 
     filtered.sort((a, b) => {
+      if (sortKey === 'fechaTurIso') {
+        const fa = a.fechaTurIso || '';
+        const fb = b.fechaTurIso || '';
+        let cmp = fa.localeCompare(fb, 'es');
+        if (cmp === 0) {
+          const ha = normalizeHoraForSort(a.hora);
+          const hb = normalizeHoraForSort(b.hora);
+          cmp = ha.localeCompare(hb, 'es');
+        }
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+
+      if (sortKey === 'hora') {
+        const ha = normalizeHoraForSort(a.hora);
+        const hb = normalizeHoraForSort(b.hora);
+        const cmp = ha.localeCompare(hb, 'es');
+        return sortDir === 'asc' ? cmp : -cmp;
+      }
+
       const va = a[sortKey] || '';
       const vb = b[sortKey] || '';
       const cmp = va.localeCompare(vb, 'es');
@@ -83,7 +118,9 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
       'Especialidad',
       'Profesional',
       'FechaTur',
+      'Hora',
       'EstadoTurno',
+      'Usuario',
       'Anotador',
     ];
     const data = sortedRows.map((r) => [
@@ -92,7 +129,9 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
       r.especialidad,
       r.profesional,
       r.fechaTurIso ? formatIsoToDisplay(r.fechaTurIso) : r.fechaTurRaw,
+      r.hora,
       r.estadoTurno,
+      r.usuario,
       r.anotador,
     ]);
     downloadXlsx(
@@ -109,7 +148,9 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
     { key: 'especialidad', label: 'Especialidad' },
     { key: 'profesional', label: 'Profesional' },
     { key: 'fechaTurIso', label: 'FechaTur' },
+    { key: 'hora', label: 'Hora' },
     { key: 'estadoTurno', label: 'EstadoTurno' },
+    { key: 'usuario', label: 'Usuario' },
     { key: 'anotador', label: 'Anotador' },
   ];
 
@@ -276,6 +317,9 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
                         ? formatIsoToDisplay(row.fechaTurIso)
                         : row.fechaTurRaw || '—'}
                     </td>
+                    <td className="px-3.5 py-2 font-mono tabular-nums text-slate-700 whitespace-nowrap">
+                      {row.hora || '—'}
+                    </td>
                     <td
                       className={`px-3.5 py-2 whitespace-nowrap ${
                         isOverdueAssigned
@@ -288,6 +332,9 @@ export function RecordsTable({ rows, lecturaFechaIso }: RecordsTableProps) {
                       }`}
                     >
                       {row.estadoTurno}
+                    </td>
+                    <td className="px-3.5 py-2 text-slate-700 whitespace-nowrap">
+                      {row.usuario || '—'}
                     </td>
                     <td className="px-3.5 py-2 text-slate-600 whitespace-nowrap">
                       {row.anotador}

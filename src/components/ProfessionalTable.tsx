@@ -68,6 +68,11 @@ function fmtRoundedPct(part: number, total: number): string {
   return `${Math.round((part / total) * 100)}%`;
 }
 
+function truncateChars(text: string, maxChars = 25): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars).trimEnd()}…`;
+}
+
 export function ProfessionalTable({ rows, onDrillDown }: ProfessionalTableProps) {
   const [sortCol, setSortCol] = useState<ProfessionalSortCol>('profesional');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
@@ -279,18 +284,20 @@ export function ProfessionalTable({ rows, onDrillDown }: ProfessionalTableProps)
                   key={row.key}
                   className="hover:bg-slate-50 transition-colors"
                 >
-                  <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-slate-200 font-medium text-slate-900">
+                  <td className="sticky left-0 z-10 bg-white px-4 py-2 border-r border-slate-200 font-medium text-slate-900 whitespace-nowrap">
                     {onDrillDown ? (
                       <button
                         type="button"
                         onClick={() => onDrillDown('profesional', row.key)}
-                        title="Filtrar tablero por este profesional"
-                        className="truncate text-left hover:text-teal-700 hover:underline transition-colors max-w-full block"
+                        title={`${row.label} (clic para filtrar)`}
+                        className="text-left hover:text-teal-700 hover:underline transition-colors block"
                       >
-                        {row.label}
+                        {truncateChars(row.label, 25)}
                       </button>
                     ) : (
-                      <span className="truncate block">{row.label}</span>
+                      <span title={row.label} className="block">
+                        {truncateChars(row.label, 25)}
+                      </span>
                     )}
                   </td>
                   <td className="px-3.5 py-2 text-right font-mono tabular-nums text-amber-800 bg-amber-50/30 whitespace-nowrap">

@@ -7,8 +7,10 @@ export interface DerivadoRow {
   fechaTurRaw: string;
   fechaTurIso: string; // YYYY-MM-DD for sorting and date range filtering
   fechaTurMes: string; // YYYY-MM for monthly grouping
+  hora: string;
   estadoSlot: string;
   estadoTurno: string; // Normalized: "Sin estado" when blank in sheet
+  usuario: string;
   anotador: string; // Normalized: "Sin anotador" when blank in sheet
 }
 

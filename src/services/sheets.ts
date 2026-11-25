@@ -93,6 +93,10 @@ export function formatMonthToDisplay(ym: string): string {
 function getCellText(cell: GvizCell | null | undefined): string {
   if (!cell) return '';
   if (cell.f !== undefined && cell.f !== null) return String(cell.f).trim();
+  if (Array.isArray(cell.v)) {
+    const [h = 0, m = 0] = cell.v as number[];
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
   if (cell.v !== undefined && cell.v !== null) return String(cell.v).trim();
   return '';
 }
@@ -210,10 +214,12 @@ function parseDerivadosTable(cols: GvizCol[], rows: GvizRow[]): DerivadoRow[] {
   const rawHeaders = cols.map((c) => (c.label ?? '').trim().toLowerCase());
 
   const findCol = (candidates: string[], fallbackIdx: number): number => {
-    const idx = rawHeaders.findIndex((h) =>
-      candidates.some((c) => h === c || h.includes(c))
+    const exactIdx = rawHeaders.findIndex((h) => candidates.some((c) => h === c));
+    if (exactIdx >= 0) return exactIdx;
+    const partialIdx = rawHeaders.findIndex((h) =>
+      candidates.some((c) => h.includes(c))
     );
-    return idx >= 0 ? idx : fallbackIdx;
+    return partialIdx >= 0 ? partialIdx : fallbackIdx;
   };
 
   const iDpto = findCol(['dpto', 'departamento'], 0);
@@ -221,8 +227,10 @@ function parseDerivadosTable(cols: GvizCol[], rows: GvizRow[]): DerivadoRow[] {
   const iEsp = findCol(['especialidad'], 2);
   const iProf = findCol(['profesional', 'medico'], 3);
   const iFecha = findCol(['fechatur', 'fecha'], 4);
+  const iHora = findCol(['hora', 'horatur'], -1);
   const iSlot = findCol(['estadoslot'], 5);
   const iTurno = findCol(['estadoturno'], 6);
+  const iUsuario = findCol(['usuario', 'user'], -1);
   const iAnot = findCol(['anotador'], 7);
 
   const parsed: DerivadoRow[] = [];
@@ -231,8 +239,8 @@ function parseDerivadosTable(cols: GvizCol[], rows: GvizRow[]): DerivadoRow[] {
     const cells = rows[i]?.c;
     if (!cells) continue;
 
-    const get = (idx: number) => getCellText(cells[idx]);
-    const fechaCell = cells[iFecha];
+    const get = (idx: number) => (idx >= 0 ? getCellText(cells[idx]) : '');
+    const fechaCell = iFecha >= 0 ? cells[iFecha] : null;
     const fechaRaw = getCellText(fechaCell);
     const dpto = get(iDpto);
     const caps = get(iCaps);
@@ -244,8 +252,10 @@ function parseDerivadosTable(cols: GvizCol[], rows: GvizRow[]): DerivadoRow[] {
     const fechaIso = parseSheetDateToIso(fechaRaw, fechaCell?.v);
     const fechaMes = fechaIso ? fechaIso.slice(0, 7) : '';
 
+    const horaRaw = get(iHora);
     const estadoSlotRaw = get(iSlot);
     const estadoTurnoRaw = get(iTurno);
+    const usuarioRaw = get(iUsuario);
     const anotadorRaw = get(iAnot);
 
     parsed.push({
@@ -257,8 +267,10 @@ function parseDerivadosTable(cols: GvizCol[], rows: GvizRow[]): DerivadoRow[] {
       fechaTurRaw: fechaRaw,
       fechaTurIso: fechaIso,
       fechaTurMes: fechaMes,
+      hora: horaRaw,
       estadoSlot: estadoSlotRaw || 'Sin estado',
       estadoTurno: estadoTurnoRaw || 'Sin estado',
+      usuario: usuarioRaw,
       anotador: anotadorRaw || 'Sin anotador',
     });
   }
