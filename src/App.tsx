@@ -5,7 +5,7 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import { fetchSpreadsheetData } from './services/sheets';
+import { fetchSpreadsheetData, formatIsoToDisplay } from './services/sheets';
 import {
   DerivadoRow,
   FilterState,
@@ -67,6 +67,20 @@ export default function App() {
     () => computeKpis(filteredRows, lectura?.fechaIso),
     [filteredRows, lectura?.fechaIso]
   );
+
+  const fechaTurRange = useMemo(() => {
+    let minIso = '';
+    let maxIso = '';
+    for (const r of rows) {
+      if (!r.fechaTurIso) continue;
+      if (!minIso || r.fechaTurIso < minIso) minIso = r.fechaTurIso;
+      if (!maxIso || r.fechaTurIso > maxIso) maxIso = r.fechaTurIso;
+    }
+    return {
+      minDisplay: minIso ? formatIsoToDisplay(minIso) : loading ? '...' : '—',
+      maxDisplay: maxIso ? formatIsoToDisplay(maxIso) : loading ? '...' : '—',
+    };
+  }, [rows, loading]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -173,7 +187,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Top Bar Contract: 3 zones separated by gap-8 */}
-      <header className="sticky top-0 z-30 h-14 px-4 lg:px-6 bg-white border-b border-slate-200 flex items-center justify-between gap-8">
+      <header className="sticky top-0 z-30 min-h-16 py-2 px-4 lg:px-6 bg-white border-b border-slate-200 flex items-center justify-between gap-4 lg:gap-8">
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
@@ -189,18 +203,42 @@ export default function App() {
             )}
           </button>
 
-          <a
-            href="#top"
-            className="font-display text-base font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0"
-          >
-            Tablero Derivados (Lectura al:{' '}
-            {lectura?.fechaRaw || (loading ? '...' : '—')})
+          <a href="#top" className="min-w-0 block">
+            <div className="font-display text-base sm:text-lg font-bold tracking-tight text-slate-900 leading-tight truncate">
+              Tablero Derivados
+            </div>
+            <div className="text-[11px] font-sans text-slate-500 leading-tight mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 tabular-nums">
+              <span>
+                Lectura:{' '}
+                <span className="font-mono font-medium text-slate-700">
+                  {lectura?.fechaRaw || (loading ? '...' : '—')}
+                </span>
+              </span>
+              <span className="text-slate-300" aria-hidden="true">
+                -
+              </span>
+              <span>
+                Desde:{' '}
+                <span className="font-mono font-medium text-slate-700">
+                  {fechaTurRange.minDisplay}
+                </span>
+              </span>
+              <span className="text-slate-300" aria-hidden="true">
+                -
+              </span>
+              <span>
+                Hasta:{' '}
+                <span className="font-mono font-medium text-slate-700">
+                  {fechaTurRange.maxDisplay}
+                </span>
+              </span>
+            </div>
           </a>
         </div>
 
         <nav
           aria-label="Vistas principales"
-          className="hidden md:flex items-center gap-6 h-full"
+          className="hidden md:flex items-center gap-6 self-stretch -my-2"
         >
           {(
             [
