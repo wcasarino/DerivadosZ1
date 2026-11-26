@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
+  Download,
   RefreshCw,
   SlidersHorizontal,
   X,
@@ -17,6 +18,8 @@ import {
   filterRows,
   INITIAL_FILTERS,
 } from './utils/analytics';
+import { exportElementToPdf } from './utils/pdfExport';
+import { ChartsPanel } from './components/ChartsPanel';
 import { FilterSidebar } from './components/FilterSidebar';
 import { KpiStrip } from './components/KpiStrip';
 import { PivotTableBuilder } from './components/PivotTableBuilder';
@@ -24,7 +27,7 @@ import { ProfessionalTable } from './components/ProfessionalTable';
 import { RecordsTable } from './components/RecordsTable';
 import { SpecialtyTable } from './components/SpecialtyTable';
 
-type ActiveTab = 'resumen' | 'registros';
+type ActiveTab = 'resumen' | 'registros' | 'graficos';
 
 export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -35,6 +38,24 @@ export default function App() {
   const [filters, setFilters] = useState<FilterState>(INITIAL_FILTERS);
   const [activeTab, setActiveTab] = useState<ActiveTab>('resumen');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
+  const [exportingPdf, setExportingPdf] = useState<boolean>(false);
+  const graficosReportRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadDashboardPdf = useCallback(async () => {
+    if (activeTab !== 'graficos' || !graficosReportRef.current || exportingPdf) {
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      await exportElementToPdf(
+        graficosReportRef.current,
+        'tablero-derivados-graficos.pdf',
+        '#f8fafc'
+      );
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [activeTab, exportingPdf]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -244,6 +265,7 @@ export default function App() {
             [
               { id: 'resumen', label: 'Por CAPS' },
               { id: 'registros', label: 'Registros' },
+              { id: 'graficos', label: 'Gráficos' },
             ] as const
           ).map((tab) => {
             const active = activeTab === tab.id;
@@ -264,7 +286,7 @@ export default function App() {
           })}
         </nav>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
             onClick={() => void loadData()}
@@ -275,6 +297,21 @@ export default function App() {
               className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`}
             />
             {loading ? 'Actualizando...' : 'Actualizar'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleDownloadDashboardPdf()}
+            disabled={activeTab !== 'graficos' || loading || exportingPdf}
+            title={
+              activeTab === 'graficos'
+                ? 'Descargar KPIs y Gráficos en PDF'
+                : 'Disponible solo en la sección Gráficos'
+            }
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exportingPdf ? 'Generando PDF...' : 'Descargar PDF'}
           </button>
         </div>
       </header>
@@ -298,6 +335,7 @@ export default function App() {
               [
                 { id: 'resumen', label: 'Por CAPS' },
                 { id: 'registros', label: 'Registros' },
+                { id: 'graficos', label: 'Gráficos' },
               ] as const
             ).map((tab) => (
               <button
@@ -362,34 +400,47 @@ export default function App() {
             </div>
           )}
 
-          {/* KPI Strip */}
-          <KpiStrip kpis={kpis} loading={loading && rows.length === 0} />
-
-          {/* View Content */}
-          {activeTab === 'resumen' && (
-            <div className="space-y-5">
-              <PivotTableBuilder
+          {/* KPI Strip + View Content */}
+          {activeTab === 'graficos' ? (
+            <div ref={graficosReportRef} className="space-y-5">
+              <KpiStrip kpis={kpis} loading={loading && rows.length === 0} />
+              <ChartsPanel
                 rows={filteredRows}
+                kpis={kpis}
+                lecturaFechaIso={lectura?.fechaIso}
                 onDrillDown={handlePivotDrillDown}
               />
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
-                <SpecialtyTable
-                  rows={filteredRows}
-                  onDrillDown={handlePivotDrillDown}
-                />
-                <ProfessionalTable
-                  rows={filteredRows}
-                  onDrillDown={handlePivotDrillDown}
-                />
-              </div>
             </div>
-          )}
+          ) : (
+            <>
+              <KpiStrip kpis={kpis} loading={loading && rows.length === 0} />
 
-          {activeTab === 'registros' && (
-            <RecordsTable
-              rows={filteredRows}
-              lecturaFechaIso={lectura?.fechaIso}
-            />
+              {activeTab === 'resumen' && (
+                <div className="space-y-5">
+                  <PivotTableBuilder
+                    rows={filteredRows}
+                    onDrillDown={handlePivotDrillDown}
+                  />
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+                    <SpecialtyTable
+                      rows={filteredRows}
+                      onDrillDown={handlePivotDrillDown}
+                    />
+                    <ProfessionalTable
+                      rows={filteredRows}
+                      onDrillDown={handlePivotDrillDown}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'registros' && (
+                <RecordsTable
+                  rows={filteredRows}
+                  lecturaFechaIso={lectura?.fechaIso}
+                />
+              )}
+            </>
           )}
         </main>
       </div>
